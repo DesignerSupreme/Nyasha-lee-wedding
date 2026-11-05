@@ -99,6 +99,29 @@ html:not(.js) body,html.broken body{background:#EEF0E8}
 .fb-note{margin:22px 16px 0;padding:14px 16px;border-radius:14px;background:var(--sage-wash);font-size:13.5px;line-height:1.5;color:var(--ink-soft);text-align:center}
 @media (min-aspect-ratio:3/4){#frame{border-radius:28px;box-shadow:0 30px 90px rgba(0,0,0,.5)}}
 
+/* ---------- Computers and landscape tablets ----------
+   The stage stays portrait (the scenes are composed for it), floats with breathing room over a blurred,
+   dimmed copy of the set, and the information sheets open as a side panel next to it instead of over it. */
+#ambient{position:absolute;left:-8%;top:-8%;width:116%;height:116%;object-fit:cover;opacity:.01;transition:opacity 1.4s ease 1.7s;will-change:opacity}
+.opened #ambient{opacity:.42}
+#frame{transition:transform .7s var(--spring)}
+.wide #frame{border-radius:24px;box-shadow:0 0 0 1px rgba(235,212,154,.16),0 40px 110px rgba(0,0,0,.55)}
+.side .sheeted #frame{transform:translate(calc(-50% + var(--shift,0px)),-50%)}
+.side #scrim{display:none}
+.side #sheet{position:fixed;z-index:40;left:var(--sl);top:var(--st);bottom:auto;right:auto;width:var(--sw);height:var(--sh);max-height:none;border-radius:24px;padding-bottom:0;box-shadow:0 0 0 1px rgba(191,154,85,.28),0 40px 110px rgba(0,0,0,.5);opacity:0;visibility:hidden;transform:translate3d(48px,0,0);transition:transform .7s var(--spring),opacity .4s ease,visibility 0s linear .7s}
+.side .sheeted #sheet{opacity:1;visibility:visible;transform:none;transition:transform .7s var(--spring),opacity .45s ease .08s,visibility 0s}
+.side .grab{display:none}
+.side .sheetTop{padding:22px 24px 12px;touch-action:auto}
+.side .sheetBody{flex:1;min-height:0;padding:4px 24px 32px}
+.side #sheet ::-webkit-scrollbar{width:10px}.side #sheet ::-webkit-scrollbar-thumb{background:#D9D3C4;border-radius:9px;border:3px solid var(--ivory)}
+@media (hover:hover) and (pointer:fine){
+  .icons button{transition:transform .25s var(--ease-out)}
+  .icons button:hover{transform:translateY(-3px)}
+  #moreBtn:hover,#viewBtn:hover{transform:translateY(-2px)}
+  .btn:hover,.sx:hover{filter:brightness(.96)}
+  #env:hover .tap span{background:rgba(28,38,22,1)}
+}
+
 .layer{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 #set{z-index:1}
 #setBlur{z-index:2}
@@ -176,10 +199,10 @@ html:not(.js) body,html.broken body{background:#EEF0E8}
 .icons .cmp{display:none}
 #frame.compact .icons .cmp{display:grid}
 #frame.compact #moreBtn{display:none}
-#frame.compact .icons{gap:4px}
-#frame.compact .icons button{width:62px}
+#frame.compact .icons{gap:8px}
+#frame.compact .icons button{width:auto;min-width:54px}
 .icons span{text-align:center;line-height:1.25}
-#frame.compact .icons span{font-size:10px;letter-spacing:.08em}
+#frame.compact .icons span{font-size:10px;letter-spacing:.06em;white-space:nowrap}
 
 /* ---------- Music ---------- */
 #musicBtn{position:absolute;z-index:25;top:calc(env(safe-area-inset-top,0px) + 14px);right:calc(env(safe-area-inset-right,0px) + 14px);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(251,249,244,.96);color:var(--black);box-shadow:0 0 0 1px rgba(27,28,24,.08),0 4px 14px rgba(0,0,0,.12);opacity:0;pointer-events:none;transform:scale(.8);transition:opacity .5s ease,transform .6s var(--spring)}
@@ -366,7 +389,7 @@ input:focus,textarea:focus{outline:2px solid var(--sage);outline-offset:0;border
   <p class="fb-note">This is the simple version of the invitation. For the animated invitation with music, open it in Safari or Chrome.</p>
 </div>
 
-<div id="backdrop" aria-hidden="true"></div>
+<div id="backdrop" aria-hidden="true"><img id="ambient" alt="" src="assets/hero_blur.webp"></div>
 <main id="frame" aria-label="Wedding invitation for Nyasha and Lee">
   <img id="set" class="layer" alt="" src="assets/hero_set.webp">
   <img id="setBlur" class="layer" alt="" src="assets/hero_blur.webp">
@@ -618,6 +641,14 @@ musicBtn.addEventListener("click", () => { musicOn = !musicOn; if (musicOn) { if
 document.addEventListener("visibilitychange", () => { if (document.hidden) BGM.pause(); else if (musicWanted && musicOn) BGM.play().catch(() => {}); });
 
 /* ---------- layout ---------- */
+// On wide screens the sheet leaves the stage and becomes a side panel; on phones it lives inside the frame.
+const SIDE = { on: false, home: null };
+function moveSheet(on) {
+  const sh = $("#sheet"); if (!SIDE.home) SIDE.home = sh.parentNode;
+  SIDE.on = on; document.documentElement.classList.toggle("side", on);
+  if (on) document.body.appendChild(sh); else SIDE.home.appendChild(sh);
+  sh.setAttribute("aria-modal", on ? "false" : "true");
+}
 let FW = 0, FH = 0; const L = {};
 const insets = (() => { const p = document.createElement("div"); p.style.cssText = "position:fixed;visibility:hidden;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"; document.body.appendChild(p); return () => { const cs = getComputedStyle(p); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }; })();
 const place = (el, r) => { el.style.left = r.x + "px"; el.style.top = r.y + "px"; el.style.width = r.w + "px"; el.style.height = r.h + "px"; };
@@ -634,7 +665,21 @@ const PANEL_BOTTOM = P.y1;                                      /* lowest image 
 function layout() {
   const vw = innerWidth, vh = innerHeight;
   let fw = vw, fh = vh;
-  if (vw / vh > .75) { fh = vh; fw = Math.round(vh * 9 / 16); }
+  // computers and landscape tablets: a floating portrait stage with margins, plus room for a side panel
+  const wide = vw / vh > 1.05 && vw >= 820;
+  if (vw / vh > .75) {
+    const pad = wide ? clamp(Math.round(vh * .04), 14, 44) : 0;
+    fh = Math.min(vh - pad * 2, 1080); fw = Math.round(fh * 9 / 16);
+  }
+  document.documentElement.classList.toggle("wide", wide);
+  const gap = clamp(Math.round(vw * .018), 16, 32), sw = Math.round(clamp(vw * .3, 360, 460));
+  const side = wide && vw >= fw + gap + sw + 32;
+  if (side !== SIDE.on) moveSheet(side);
+  if (side) {
+    const x0 = (vw - (fw + gap + sw)) / 2, rs = document.documentElement.style;
+    rs.setProperty("--shift", (x0 + fw / 2 - vw / 2) + "px"); rs.setProperty("--sl", (x0 + fw + gap) + "px");
+    rs.setProperty("--st", ((vh - fh) / 2) + "px"); rs.setProperty("--sh", fh + "px"); rs.setProperty("--sw", sw + "px");
+  }
   frame.style.width = fw + "px"; frame.style.height = fh + "px"; FW = fw; FH = fh;
   const ins = insets();
   const [W, H] = META.hero_set;
@@ -826,6 +871,7 @@ function doOpen() {
   opened = true; env.classList.add("press");          // anticipation: the seal dips under the thumb
   setTimeout(() => {
     env.classList.remove("press"); env.classList.add("open"); document.body.classList.add("opened");
+    preOpen.forEach(el => el.inert = false); env.inert = true;
     const dl = $(".door.l"), drr = $(".door.r"), shades = $$(".shade");
     // the doors move at once; the uncovered area follows a smoothstep, so no 0.1 s reveals more than ~11% of the screen
     animate(RM ? 10 : 1650, p => {
@@ -841,6 +887,10 @@ function doOpen() {
 }
 env.addEventListener("click", openEnvelope);
 env.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEnvelope(); } });
+// keyboard: until the envelope opens, only the seal (and the music button) can take focus, and Enter or Space anywhere opens it
+const preOpen = [...frame.children].filter(el => el !== env && el.id !== "musicBtn" && !el.contains($("#musicBtn")));
+preOpen.forEach(el => el.inert = true);
+document.addEventListener("keydown", e => { if (!opened && e.target === document.body && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openEnvelope(); } });
 
 /* ---------- camera push into the card, and back ---------- */
 let busy = false, carded = false;
@@ -916,10 +966,12 @@ function openSheet(name) {
 function closeSheet() { sheet.style.transform = ""; document.body.classList.remove("sheeted"); sheet.setAttribute("aria-hidden", "true"); }
 document.addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openSheet(o.dataset.open); if (e.target.closest("[data-close]")) closeSheet(); });
 $("#scrim").addEventListener("click", closeSheet);
+$("#backdrop").addEventListener("click", closeSheet);   // side panel: clicking the empty space closes it
+if (matchMedia("(hover:hover) and (pointer:fine)").matches) $("#env .tap span").textContent = "Click the seal to open";
 document.addEventListener("keydown", e => { if (e.key === "Escape") { if (document.body.classList.contains("sheeted")) closeSheet(); else if (carded) toHero(); } });
 (() => {   // drag to dismiss: tracks the finger 1:1, releases by distance or speed
   let y0 = 0, dy = 0, tp = 0, yp = 0, v = 0, active = false;
-  const down = e => { active = true; y0 = e.clientY; dy = 0; yp = e.clientY; tp = e.timeStamp; v = 0; sheet.classList.add("drag"); e.currentTarget.setPointerCapture(e.pointerId); };
+  const down = e => { if (SIDE.on) return; active = true; y0 = e.clientY; dy = 0; yp = e.clientY; tp = e.timeStamp; v = 0; sheet.classList.add("drag"); e.currentTarget.setPointerCapture(e.pointerId); };
   const move = e => { if (!active) return; dy = e.clientY - y0; sheet.style.transform = `translate3d(0,${dy < 0 ? dy * .25 : dy}px,0)`; const d = e.timeStamp - tp; if (d > 0) v = (e.clientY - yp) / d; yp = e.clientY; tp = e.timeStamp; };
   const up = () => { if (!active) return; active = false; sheet.classList.remove("drag"); if (dy > 110 || v > .6) closeSheet(); else sheet.style.transform = ""; };
   $$(".grab,.sheetTop").forEach(h => { h.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; down(e); }); h.addEventListener("pointermove", move); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up); });
